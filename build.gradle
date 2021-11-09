@@ -1,0 +1,150 @@
+
+  
+class Version {
+  	String buildNumberString = System.getenv("BUILD_NUMBER")
+  
+  	String toString() {
+  		if (buildNumberString == null) {
+  			"2021.11.8.1"
+  
+  		} else {
+  			int buildNumber = Integer.parseInt(buildNumberString)
+  
+  			"1.0.0.$buildNumber"
+  		}
+  	}
+}
+
+if (project.hasProperty('IsSubProject') == true) {
+  println("Building as subproject: " + project)
+
+  apply plugin: 'java'
+  apply plugin: 'eclipse'
+
+  apply from: 'dependencies.gradle'
+  
+  task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+  }
+
+  //task javadocJar(type: Jar, dependsOn: javadoc) {
+  //  classifier = 'javadoc'
+  //  from javadoc.destinationDir
+  //}
+
+  artifacts {
+    archives sourcesJar // javadocJar
+  }  
+
+  publishing {
+	publications {
+		main(MavenPublication) {
+			from components.java
+		}
+	}
+  }
+  
+} else {
+  println("Building as main project: " + project)
+
+  buildscript {
+    repositories {
+      mavenCentral()
+      maven { url "https://plugins.gradle.org/m2/" }
+    }
+  
+    dependencies {
+      classpath "io.spring.gradle:dependency-management-plugin:1.0.3.RELEASE"
+      //classpath 'io.franzbecker:gradle-lombok:3.1.0'
+      //classpath "io.freefair.gradle:lombok-plugin:6.2.0"
+    }
+  }
+
+  apply plugin: 'java'
+  apply plugin: 'eclipse'
+  apply plugin: 'maven-publish'
+  //apply plugin: 'maven'
+  //apply plugin: 'signing'
+  //apply plugin: "io.freefair.lombok"
+     
+  sourceCompatibility = 15
+  targetCompatibility = 15
+  compileJava.options.encoding = 'UTF-8'
+    
+  group='com.dieharddev'
+  
+  version = new Version().toString();
+   
+  repositories {
+    jcenter()
+    mavenCentral()
+    maven { url "http://repo.spring.io/release/" }
+     
+    maven { url "http://javaxdelta.sourceforge.net/maven2/repository" }
+    maven { url "https://repository.jboss.org/nexus/content/repositories/deprecated" }
+    maven { url "http://maven-eclipse.github.io/maven" }
+    maven { url "http://mvnrepository.com/" }
+    maven { url "http://archiva.fdvs.com.ar/repository/public1/" }
+    maven { url "http://maven.cloudhopper.com/repos/third-party/" }
+    maven { url "http://repo.maven.apache.org/maven2" }
+      
+    maven { url "https://repo.boundlessgeo.com/main/" }
+  
+  	// https://jitpack.io/
+  	maven { url 'https://jitpack.io' }
+  }
+      
+  apply from: 'dependencies.gradle'
+  
+  task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+  }
+
+  //task javadocJar(type: Jar, dependsOn: javadoc) {
+  //  classifier = 'javadoc'
+  //  from javadoc.destinationDir
+  //}
+
+  artifacts {
+    archives sourcesJar // javadocJar
+  }
+  
+  publishing {
+    def artifactoryDeployUser = System.getenv("PUBLISH_REPO_USER")
+    def artifactoryDeployPass = System.getenv("PUBLISH_REPO_PASSWORD")
+  
+    repositories {
+  	  maven {
+  			  credentials {
+  				username artifactoryDeployUser
+  				password artifactoryDeployPass
+  			  }
+  
+  			  url "http://s01.oss.sonatype.org"
+  	  }
+  	}
+
+	publications {
+		main(MavenPublication) {
+			from components.java
+		}
+	}
+  }
+
+  task allDeps(type: DependencyReportTask) {}
+
+  task checkDependencies() {
+      doLast {
+           configurations.compile.each { file ->
+          	if ( file.toString().contains('build') == false) {
+              	//println "TRACER checking: " + file.name
+              	assert file.exists()
+              	//TODO echo -e '\e[1A\e[K'
+              }
+          }
+      }
+  }
+}
+
